@@ -1,26 +1,44 @@
 import { Request, Response } from "express";
 import { prismaClient } from "..";
-import { hashSync } from "bcrypt";
-import { SALT_ROUNDS } from "../secrets";
+import { compareSync, hashSync } from "bcrypt";
+import { JWT_SECRET, SALT_ROUNDS } from "../secrets";
+import * as jwt from "jsonwebtoken";
 
-export const login = (req: Request, res: Response) => {
-  res.send("Login works");
-};
+// TODO: all async function have got inside try and catch
 
 export const signup = async (req: Request, res: Response) => {
   const { email, password, name } = req.body;
 
   let user = await prismaClient.user.findFirst({ where: { email } });
 
-  if (user) throw Error("User already exists");
+  if (user) throw Error("User already exists!");
 
   user = await prismaClient.user.create({
     data: {
       name,
       email,
-      password: hashSync(password, parseInt(SALT_ROUNDS || "10")),
+      password: hashSync(password, parseInt(SALT_ROUNDS)),
     },
   });
 
-  res.json(user);
+  res.status(200).json({ ok: true, name });
+};
+
+export const login = async (req: Request, res: Response) => {
+  const { email, password } = req.body;
+  let user = await prismaClient.user.findFirst({ where: { email } });
+
+  if (!user) throw Error("User does not exists!");
+
+  if (!compareSync(password, user.password)) throw Error("Incorrect password!");
+
+  const token = jwt.sign(
+    {
+      userId: user.id,
+    },
+    JWT_SECRET,
+    { expiresIn: "1h" }
+  );
+
+  res.status(200).json({ token });
 };
