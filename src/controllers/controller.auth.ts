@@ -2,19 +2,17 @@ import { NextFunction, Request, Response } from "express";
 import { prismaClient } from "..";
 import { compareSync, hashSync } from "bcrypt";
 import { JWT_SECRET, SALT_ROUNDS } from "../secrets";
-//import * as jwt from "jsonwebtoken";
 import jwt from "jsonwebtoken";
 import { BadRequestException } from "../exceptions/exception.bad-request";
 import { ErrorCode } from "../exceptions/exception.root";
-import { UnprocessableEntity } from "../exceptions/exception.validation";
 import { schemaSignup } from "../schema/schema.signup";
+import { NotFoundException } from "../exceptions/exception.not-found";
 
 export const signup = async (
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
-  // try {
   schemaSignup.parse(req.body);
   const { name, email, password } = req.body;
   let user = await prismaClient.user.findFirst({ where: { email } });
@@ -34,25 +32,27 @@ export const signup = async (
     },
   });
   res.status(200).json({ ok: true, name });
-  // } catch (err: any) {
-  //   next(
-  //     new UnprocessableEntity(
-  //       "Unprocessable entity",
-  //       ErrorCode.UNPROCESSABLE_ENTITY,
-  //       err?.issues
-  //     )
-  //   );
-  // }
 };
 
-// TODO: all async function have got inside try and catch
-export const login = async (req: Request, res: Response) => {
+export const login = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   const { email, password } = req.body;
   let user = await prismaClient.user.findFirst({ where: { email } });
 
-  if (!user) throw Error("User does not exists!");
+  if (!user)
+    throw new NotFoundException(
+      "User does not exists!",
+      ErrorCode.USER_NOT_FOUND
+    );
 
-  if (!compareSync(password, user.password)) throw Error("Incorrect password!");
+  if (!compareSync(password, user.password))
+    throw new BadRequestException(
+      "Incorrect password!",
+      ErrorCode.INCORRECT_PASSWORD
+    );
 
   const token = jwt.sign(
     {
@@ -62,5 +62,9 @@ export const login = async (req: Request, res: Response) => {
     { expiresIn: "1h" }
   );
 
-  res.status(200).json({ token });
+  res.status(200).json({ userId: user.id, token });
+};
+
+export const me = async (req: Request, res: Response) => {
+  res.status(200).json(req.body);
 };
