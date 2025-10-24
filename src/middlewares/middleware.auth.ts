@@ -26,7 +26,9 @@ export const authMiddleware = async (
     if (!user)
       next(new UnauthorizedException("Unauthorized", ErrorCode.UNAUTHORIZED));
     // 5. to attach the user to the current request object.
-    else req.body = user;
+    else req.user = user; //  -> THERE WAS NOT ERROR! ANYMORE.
+
+    // console.log("authMiddleware | req.body = " + req.body);
     next();
   } catch (err) {
     next(new UnauthorizedException("Unauthorized", ErrorCode.UNAUTHORIZED));
